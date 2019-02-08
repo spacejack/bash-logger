@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+# Bash wrapper script that sends stdout and stderr to separate,
+# date-time-stamped log files.
+
+# CLI parameters are passed through to app
+
+# Environment variable APP_LOGS_HOME must be set to
+# a directory where log files and subdirectories can
+# be created. This can be done from the CLI. Eg:
+# $ APP_LOGS_HOME=./logs ./bash-logger
+
+# safety features
+set -euf -o pipefail
+
+if [ -z "$APP_LOGS_HOME" ]; then
+	>&2 echo "APP_LOGS_HOME must be set"
+	exit 1
+fi
+
+# Log location and subfolders: $APP_LOGS_HOME/logs/YYYY/MM
+logDir="$APP_LOGS_HOME/$(printf '%(%Y/%m)T')"
+mkdir -p $logDir
+
+# YYYY-MM-DD date-stamped filename
+fileStamp=$(printf '%(%F)T')
+
+# Adds 'YYYY-MM-DD HH:MM:SS' timestamps to log lines
+dateStamp() {
+	while IFS= read -r line; do
+		echo "[$(printf '%(%F %T)T')] $line"
+	done
+}
+
+# Change to this script's directory
+cd "$(dirname "$0")"
+
+# Run the program we are logging. Pass through any cli params ($@)
+(./myapp "$@" | dateStamp \
+	>> $logDir/$fileStamp.out.log) 3>&1 1>&2 2>&3 | dateStamp \
+	>> $logDir/$fileStamp.err.log
